@@ -294,7 +294,7 @@ func builtinDateFormat(args []types.Datum, _ context.Context) (types.Datum, erro
 				str, err := convertDateFormat(args[0], b)
 				if err != nil {
 					if err.Error() == mysql.ErrInvalidTimeFormat.Error() {
-						return d, nil
+						err = nil
 					}
 					return types.Datum{}, errors.Trace(err)
 				}
