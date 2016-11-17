@@ -160,6 +160,9 @@ func convertDateFormat(arg types.Datum, b byte) (types.Datum, error) {
 		}
 	case 'H', 'k':
 		d, err = builtinHour([]types.Datum{arg}, nil)
+		if err == nil && b == 'H' && !d.IsNull() {
+			d.SetString(fmt.Sprintf("%02d", d.GetInt64()))
+		}
 	case 'h', 'I', 'l':
 		d, err = builtinHour([]types.Datum{arg}, nil)
 		if err == nil && !d.IsNull() {
@@ -196,11 +199,14 @@ func convertDateFormat(arg types.Datum, b byte) (types.Datum, error) {
 		}
 	case 'S', 's':
 		d, err = builtinSecond([]types.Datum{arg}, nil)
-		if err == nil {
+		if err == nil && !d.IsNull() {
 			d.SetString(fmt.Sprintf("%02d", d.GetInt64()))
 		}
 	case 'f':
 		d, err = builtinMicroSecond([]types.Datum{arg}, nil)
+		if err == nil && !d.IsNull() {
+			d.SetString(fmt.Sprintf("%06d", d.GetInt64()))
+		}
 	case 'U':
 		d, err = builtinWeek([]types.Datum{arg, types.NewIntDatum(0)}, nil)
 		if err == nil && !d.IsNull() {
@@ -280,7 +286,6 @@ func builtinDateFormat(args []types.Datum, _ context.Context) (types.Datum, erro
 		d         types.Datum
 	)
 
-	// TODO: Some invalid format like 2000-00-01(the month is 0) will return null.
 	for _, b := range []byte(args[1].GetString()) {
 		if isPercent {
 			if b == '%' {
@@ -288,6 +293,9 @@ func builtinDateFormat(args []types.Datum, _ context.Context) (types.Datum, erro
 			} else {
 				str, err := convertDateFormat(args[0], b)
 				if err != nil {
+					if err.Error() == mysql.ErrInvalidTimeFormat.Error() {
+						return d, nil
+					}
 					return types.Datum{}, errors.Trace(err)
 				}
 				if str.IsNull() {
@@ -304,7 +312,6 @@ func builtinDateFormat(args []types.Datum, _ context.Context) (types.Datum, erro
 			ret = append(ret, b)
 		}
 	}
-
 	d.SetString(string(ret))
 	return d, nil
 }
